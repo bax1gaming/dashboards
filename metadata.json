@@ -1,0 +1,5 @@
+{
+  "name": "MagnoGen Dashboard",
+  "description": "A technical dashboard for monitoring real-time energy generation from Earth's magnetic field, featuring coil temperature, energy production, storage, and consumption metrics.",
+  "requestFramePermissions": []
+}
