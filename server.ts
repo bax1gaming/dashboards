@@ -15,52 +15,56 @@ async function startServer() {
 
   const PORT = 3000;
 
-  // Mock Data Generation Logic
-  let coilTemp = 45;
-  let energyProduced = 120;
-  let energyStored = 85;
-  let energyConsumed = 80;
-  const history: any[] = [];
-
-  // Initialize history
-  for (let i = 0; i < 20; i++) {
-    history.push({
-      time: new Date(Date.now() - (20 - i) * 5000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-      produced: 100 + Math.random() * 50,
-      consumed: 70 + Math.random() * 30,
-    });
-  }
-
-  setInterval(() => {
-    // Simulate fluctuations
-    coilTemp = Math.max(20, Math.min(100, coilTemp + (Math.random() - 0.5) * 2));
-    const deltaProduced = (Math.random() - 0.4) * 10;
-    energyProduced = Math.max(0, energyProduced + deltaProduced);
-    energyConsumed = Math.max(0, energyConsumed + (Math.random() - 0.45) * 8);
-    
-    // Update storage based on net production
-    const net = energyProduced - energyConsumed;
-    energyStored = Math.max(0, Math.min(100, energyStored + net * 0.01));
-
-    const newData = {
-      coilTemp: parseFloat(coilTemp.toFixed(1)),
-      energyProduced: parseFloat(energyProduced.toFixed(1)),
-      energyStored: parseFloat(energyStored.toFixed(1)),
-      energyConsumed: parseFloat(energyConsumed.toFixed(1)),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  // Data Generation Logic (Deterministic for serverless stability)
+  const getStatsAtTime = (timestamp: number) => {
+    const seed = Math.floor(timestamp / 5000); // Change every 5 seconds
+    const random = (offset: number) => {
+      const x = Math.sin(seed + offset) * 10000;
+      return x - Math.floor(x);
     };
 
-    history.push({
-      time: newData.timestamp,
-      produced: newData.energyProduced,
-      consumed: newData.energyConsumed,
-    });
-    if (history.length > 20) history.shift();
+    const temp = 40 + random(1) * 50;
+    const produced = 100 + random(2) * 80;
+    const consumed = 60 + random(3) * 60;
+    const stored = 70 + (Math.sin(timestamp / 100000) * 20); // Slow oscillation
 
+    return {
+      coilTemp: parseFloat(temp.toFixed(1)),
+      energyProduced: parseFloat(produced.toFixed(1)),
+      energyStored: parseFloat(stored.toFixed(1)),
+      energyConsumed: parseFloat(consumed.toFixed(1)),
+      timestamp: new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    };
+  };
+
+  const getHistory = () => {
+    const hist = [];
+    const now = Date.now();
+    for (let i = 0; i < 20; i++) {
+      const t = now - (20 - i) * 5000;
+      const s = getStatsAtTime(t);
+      hist.push({
+        time: s.timestamp,
+        produced: s.energyProduced,
+        consumed: s.energyConsumed,
+      });
+    }
+    return hist;
+  };
+
+  setInterval(() => {
+    const newData = getStatsAtTime(Date.now());
+    const history = getHistory();
     io.emit("stats_update", { ...newData, history });
-  }, 2000);
+  }, 5000);
 
   // API Routes
+  app.get("/api/stats", (req, res) => {
+    const newData = getStatsAtTime(Date.now());
+    const history = getHistory();
+    res.json({ ...newData, history });
+  });
+
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });

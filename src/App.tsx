@@ -51,6 +51,21 @@ export default function App() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    // Fetch initial data
+    const fetchInitialStats = async () => {
+      try {
+        const response = await fetch('/api/stats');
+        if (response.ok) {
+          const data = await response.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch initial stats:', error);
+      }
+    };
+
+    fetchInitialStats();
+
     const newSocket = io();
     setSocket(newSocket);
 
